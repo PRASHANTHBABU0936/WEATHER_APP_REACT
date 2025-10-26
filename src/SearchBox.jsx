@@ -1,119 +1,167 @@
-import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
+import { useState } from "react";
+import { TextField, Button, Box, Typography } from "@mui/material";
 import "./SearchBox.css";
-import { useState } from 'react';
 
-export default function SearchBox({updateInfo}) {
-    let [city, setCity] = useState("");
-    let [error,setError]=useState(false);
-    const API_URL = "https://api.openweathermap.org/data/2.5/weather";
-    const API_KEY = "1a032877ab02f50382245ce448a174f0";
+export default function SearchBox({ updateInfo }) {
+  const [city, setCity] = useState("");
+  const [error, setError] = useState(false);
+  
+const API_URL = process.env.REACT_APP_API_URL;
+const API_KEY = process.env.REACT_APP_API_KEY;
 
-let getWeatherInfo = async (customCity = null) => {
-        try{
-            setError(false); 
 
-const cityName = customCity || city;
-let response = await fetch(`${API_URL}?q=${cityName}&appid=${API_KEY}&units=metric`);
-        let jsonResponse = await response.json();
-        // console.log(jsonResponse);  
-let result = {
-    city: city,
-    temp:jsonResponse.main.temp,
-    tempMin:jsonResponse.main.temp_min,
-    tempMax:jsonResponse.main.temp_max,
-humidity:jsonResponse.main.humidity,
-feels_like :jsonResponse.main.feels_like,
-weather:jsonResponse.weather[0].description,
-};
-console.log(result);
-return result;}
-catch(err){
-throw err;}
-        
+  // ✅ Fetch weather info from OpenWeatherMap API
+  const getWeatherInfo = async (customCity = null) => {
+    try {
+      setError(false);
+      const cityName = customCity || city;
 
-    };
+      const response = await fetch(
+        `${API_URL}?q=${cityName}&appid=${API_KEY}&units=metric`
+      );
+      const jsonResponse = await response.json();
 
-    let handleChange = (evt) => {
-         setCity(evt.target.value);
-        if (error) setError(false); 
-    };
+      if (jsonResponse.cod !== 200) throw new Error("City not found");
 
-    let handleSubmit = async(evt) => {
-        try{ evt.preventDefault();
-        console.log(city);
-        setCity(""); 
-            let newInfo =  await getWeatherInfo(); 
-    updateInfo(newInfo);} catch(err){
-setError(true);
+      const result = {
+        city: jsonResponse.name,
+        temp: jsonResponse.main.temp,
+        tempMin: jsonResponse.main.temp_min,
+        tempMax: jsonResponse.main.temp_max,
+        humidity: jsonResponse.main.humidity,
+        feels_like: jsonResponse.main.feels_like,
+        weather: jsonResponse.weather[0].description,
+      };
+
+      console.log("✅ Weather Data:", result);
+      return result;
+    } catch (err) {
+      console.error("❌ Error fetching weather:", err);
+      throw err;
     }
-       
-        };
-        const handleVoiceSearch = () => {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  };
 
-  if (!SpeechRecognition) {
-    alert("Your browser does not support Speech Recognition");
-    return;
-  }
+  // ✅ Handle manual text input
+  const handleChange = (evt) => {
+    setCity(evt.target.value);
+    if (error) setError(false);
+  };
 
-  const recognition = new SpeechRecognition();
-  recognition.lang = "en-US";
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
-
-  recognition.start();
-
-  recognition.onresult = async (event) => {
-    const spokenCity = event.results[0][0].transcript;
-    console.log("Voice Input:", spokenCity);
-const cleanedCity = spokenCity.replace(/[^\w\s]/gi, "");  // removes punctuation
-setCity(cleanedCity);
-    
-
-    // Automatically submit after setting city
-    const newInfo = await getWeatherInfo(spokenCity);
-    if (newInfo) {
+  // ✅ Handle manual submit
+  const handleSubmit = async (evt) => {
+    evt.preventDefault();
+    try {
+      const newInfo = await getWeatherInfo();
       updateInfo(newInfo);
       setCity("");
+    } catch {
+      setError(true);
     }
   };
 
-  recognition.onerror = (event) => {
-    console.error("Speech Recognition Error:", event.error);
-    alert("Voice input failed. Please try again.");
+  // ✅ Handle Voice Search
+  const handleVoiceSearch = () => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Your browser does not support Speech Recognition");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.start();
+
+    recognition.onresult = async (event) => {
+      const spokenCity = event.results[0][0].transcript;
+      console.log("🎤 Voice Input:", spokenCity);
+
+      const cleanedCity = spokenCity.replace(/[^\w\s]/gi, "").trim();
+      setCity(cleanedCity);
+
+      try {
+        const newInfo = await getWeatherInfo(cleanedCity);
+        updateInfo(newInfo);
+        setCity("");
+      } catch {
+        setError(true);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech Recognition Error:", event.error);
+      alert("Voice input failed. Please try again.");
+    };
   };
-};
 
+  return (
+    <Box
+      sx={{
+        mt: 3,
+        display: "flex",
+        flexDirection: { xs: "column", sm: "row" },
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 2,
+      }}
+    >
+      <form
+        onSubmit={handleSubmit}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          width: "100%",
+          alignItems: "center",
+        }}
+      >
+        <TextField
+          id="city"
+          label="Enter City Name"
+          variant="outlined"
+          required
+          value={city}
+          onChange={handleChange}
+          sx={{
+            width: { xs: "90%", sm: "70%" },
+          }}
+        />
 
-    return (
-        <div className='SearchBox'>
-            {/* <h3>Search for the weather</h3> */}
-            <form onSubmit={handleSubmit}>
-                <TextField
-                    id="city"
-                    label="City Name"
-                    variant="outlined"
-                    required
-                    value={city}
-                    onChange={handleChange}
-                />
-                <br />
-               <Button variant="contained" type="submit" style={{ margin: '7px' }}>
-                Search
-           </Button>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
+            justifyContent: "center",
+            gap: 2,
+            mt: 2,
+          }}
+        >
+          <Button variant="contained" color="primary" type="submit">
+            🔍 Search
+          </Button>
 
-<Button
-  variant="outlined"
-  type="button"
-  onClick={handleVoiceSearch}
-  style={{ margin: '7px' }}
->
-  🎤 Speak City
-</Button>
+          <Button
+            variant="outlined"
+            color="secondary"
+            type="button"
+            onClick={handleVoiceSearch}
+          >
+            🎤 Speak City
+          </Button>
+        </Box>
 
-{error && <p style={{ color: "red" }}>No Such place exists</p>}
-            </form>
-        </div>
-    );
+        {error && (
+          <Typography
+            variant="body2"
+            sx={{ color: "red", mt: 1, textAlign: "center" }}
+          >
+            ❌ No such place exists. Please try again.
+          </Typography>
+        )}
+      </form>
+    </Box>
+  );
 }
